@@ -1,5 +1,9 @@
 from warcio.timeutils import timestamp_to_datetime, datetime_to_iso_date
+from six.moves.urllib.parse import urlsplit
+from six.moves.urllib.robotparser import RobotFileParser
 import re
+import time
+import requests
 
 
 # ============================================================================
@@ -97,6 +101,78 @@ class CollectionFilter(SkipDefaultFilter):
             rx = self.rx_accept_map.get('*')
 
         if rx and not rx.match(resp_headers.get('Warcserver-Source-Coll', '')):
+            return True
+
+        return False
+
+
+# ============================================================================
+class RobotsExclusionFilter(SkipDefaultFilter):
+    """Skip persisting (but not serving) responses disallowed for
+    ``user_agent`` by the target site's robots.txt.
+    """
+
+    ROBOTS_TIMEOUT = 10
+    CACHE_TTL = 3600
+
+    def __init__(self, user_agent, cache_ttl=CACHE_TTL):
+        self.user_agent = user_agent
+        self.cache_ttl = cache_ttl
+        # in-memory, per-process cache: not shared across uwsgi/gunicorn
+        # workers or separate replicas, so each worker refetches robots.txt
+        # independently (up to N fetches per host per cache_ttl for N
+        # workers). Acceptable for low-QPS record-mode traffic; would need
+        # a shared backend (e.g. Redis, as already used for dedup) to avoid
+        # duplicate fetches across processes.
+        self.parser_cache = {}
+
+    def _get_parser(self, url):
+        parts = urlsplit(url)
+        host_key = (parts.scheme, parts.netloc)
+
+        cached = self.parser_cache.get(host_key)
+        now = time.time()
+        if cached and now - cached[0] < self.cache_ttl:
+            return cached[1]
+
+        parser = RobotFileParser()
+        robots_url = '{0}://{1}/robots.txt'.format(parts.scheme, parts.netloc)
+
+        try:
+            res = requests.get(robots_url,
+                               headers={'User-Agent': self.user_agent},
+                               timeout=self.ROBOTS_TIMEOUT)
+            if res.status_code in (401, 403):
+                parser.disallow_all = True
+                parser.modified()
+            elif res.status_code >= 400:
+                # no robots.txt present -> nothing disallowed
+                parser.allow_all = True
+                parser.modified()
+            else:
+                parser.parse(res.text.splitlines())
+        except Exception:
+            # fail open: a flaky/unreachable robots.txt should not block
+            # an interactively-requested capture. (Note: RobotFileParser
+            # treats an un-parsed parser as disallow-all, so this must be
+            # set explicitly rather than left as a no-op.)
+            parser.allow_all = True
+            parser.modified()
+
+        self.parser_cache[host_key] = (now, parser)
+        return parser
+
+    def skip_response(self, path, req_headers, resp_headers, params):
+        if super(RobotsExclusionFilter, self).skip_response(path, req_headers,
+                                                             resp_headers, params):
+            return True
+
+        url = params.get('url')
+        if not url:
+            return False
+
+        parser = self._get_parser(url)
+        if not parser.can_fetch(self.user_agent, url):
             return True
 
         return False

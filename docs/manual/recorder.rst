@@ -43,11 +43,38 @@ Filters include:
 
 * Skipping if ``Range`` request header is provided
 
+* Skipping if the target site's ``robots.txt`` disallows the configured ``robots_user_agent`` (see below)
+
 * Filtering out certain HTTP headers, for example, http-only cookies
 
 The additional recorder functionality will be enhanced in a future version.
 
 For a more detailed examples, please consult the tests in :mod:`pywb.recorder.test.test_recorder`
+
+
+Robots.txt Exclusion
+---------------------
+
+Setting ``robots_user_agent`` in the ``recorder`` config section enables robots.txt-based
+exclusion for record mode (eg. "archive page now")::
+
+    recorder:
+        source_coll: live
+        robots_user_agent: Arquivo-web-crawler
+
+When set:
+
+* Record-mode requests to the live site are sent with this ``User-Agent`` instead of
+  forwarding the browser's own ``User-Agent``.
+
+* Before persisting a capture, pywb fetches and checks the site's ``robots.txt`` for rules
+  applying to this user agent. If disallowed, the capture is not written to the WARC.
+
+* The page is still served to the browser normally in either case -- this only affects
+  whether the capture is persisted, not whether it can be viewed live.
+
+If ``robots.txt`` can't be fetched (eg. network error or timeout), the capture proceeds
+as if allowed, so a temporary robots.txt fetch failure never blocks archiving.
 
 
 

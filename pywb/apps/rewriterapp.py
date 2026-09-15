@@ -57,6 +57,11 @@ class RewriterApp(object):
 
         self.enable_prefer = self.config.get('enable_prefer', False)
 
+        recorder_config = self.config.get('recorder')
+        if not isinstance(recorder_config, dict):
+            recorder_config = {}
+        self.record_ua = recorder_config.get('robots_user_agent')
+
         self.default_rw = DefaultRewriter(replay_mod=self.replay_mod,
                                           config=config)
 
@@ -717,6 +722,9 @@ class RewriterApp(object):
         return WbResponse.text_response(resp, status=status, content_type='text/html')
 
     def _do_req(self, inputreq, wb_url, kwargs, skip_record):
+        if self.record_ua and kwargs.get('type') == 'record':
+            inputreq.env['HTTP_USER_AGENT'] = self.record_ua
+
         req_data = inputreq.reconstruct_request(wb_url.url)
 
         headers = {'Content-Length': str(len(req_data)),

@@ -9,7 +9,7 @@ import six
 from six.moves.urllib.parse import parse_qsl
 from warcio.recordloader import ArcWarcRecordLoader
 
-from pywb.recorder.filters import CollectionFilter, SkipRangeRequestFilter
+from pywb.recorder.filters import CollectionFilter, RobotsExclusionFilter, SkipRangeRequestFilter
 from pywb.utils.format import ParamFormatter
 from pywb.utils.io import BUFF_SIZE, StreamIter, no_except_close
 from pywb.warcserver.inputrequest import DirectWSGIInputRequest
@@ -41,6 +41,10 @@ class RecorderApp(object):
         accept_colls = kwargs.get('accept_colls')
         if accept_colls:
             skip_filters.append(CollectionFilter(accept_colls))
+
+        robots_user_agent = kwargs.get('robots_user_agent')
+        if robots_user_agent:
+            skip_filters.append(RobotsExclusionFilter(robots_user_agent))
 
         return skip_filters
 
