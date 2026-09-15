@@ -44,7 +44,8 @@ class RecorderApp(object):
 
         robots_user_agent = kwargs.get('robots_user_agent')
         if robots_user_agent:
-            skip_filters.append(RobotsExclusionFilter(robots_user_agent))
+            skip_filters.append(RobotsExclusionFilter(robots_user_agent,
+                                                       fetch_user_agent=kwargs.get('record_user_agent')))
 
         return skip_filters
 

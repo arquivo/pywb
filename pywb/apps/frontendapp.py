@@ -266,6 +266,7 @@ class FrontEndApp(object):
         self.recorder = RecorderApp(self.RECORD_SERVER % str(self.warcserver_server.port), warc_writer,
                                     accept_colls=recorder_config.get('source_filter'),
                                     robots_user_agent=recorder_config.get('robots_user_agent'),
+                                    record_user_agent=recorder_config.get('record_user_agent'),
                                     create_buff_func=create_buff_func)
 
         recorder_server = GeventServer(self.recorder, port=0)

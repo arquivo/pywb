@@ -315,6 +315,30 @@ class TestRecorder(LiveServerTests, HttpBinLiveTests, FakeRedisTests, TempDirTes
         # fail open: a robots.txt fetch failure must not block persistence
         self._test_all_warcs('/warcs/robots_fetch_error/', 1)
 
+    def test_record_robots_and_record_user_agent(self):
+        warc_path = to_path(self.root_dir + '/warcs/robots_and_record_ua/')
+        recorder_app = RecorderApp(self.upstream_url,
+                        writer=PerRecordWARCWriter(warc_path),
+                        robots_user_agent='Arquivo-web-crawler',
+                        record_user_agent='Mozilla/5.0 (compatible; Arquivo-web-crawler/1.0)')
+
+        # robots.txt only has a rule for the short match token, not the
+        # longer record UA -- matching must still use 'Arquivo-web-crawler'
+        robots_txt = 'User-agent: Arquivo-web-crawler\nDisallow: /\n'
+        mock_robots_resp = Mock(status_code=200, text=robots_txt)
+        with patch('pywb.recorder.filters.requests.get', return_value=mock_robots_resp) as mock_get:
+            resp = self._test_warc_write(recorder_app, 'httpbin.org', '/get?foo=bar')
+
+            # robots.txt itself must be fetched using the longer record UA
+            assert mock_get.call_args.kwargs['headers']['User-Agent'] == \
+                'Mozilla/5.0 (compatible; Arquivo-web-crawler/1.0)'
+
+        assert b'HTTP/1.1 200 OK' in resp.body
+        assert b'"foo": "bar"' in resp.body
+
+        # disallowed for the configured match UA -> nothing should be persisted
+        assert not os.path.isdir(warc_path)
+
     def test_record_param_user_coll(self):
         warc_path = to_path(self.root_dir + '/warcs/{user}/{coll}/')
 

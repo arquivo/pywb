@@ -109,14 +109,23 @@ class CollectionFilter(SkipDefaultFilter):
 # ============================================================================
 class RobotsExclusionFilter(SkipDefaultFilter):
     """Skip persisting (but not serving) responses disallowed for
-    ``user_agent`` by the target site's robots.txt.
+    ``match_user_agent`` by the target site's robots.txt.
+
+    ``match_user_agent`` is the (typically short) crawler token checked
+    against the site's ``Disallow``/``Allow`` rules. ``fetch_user_agent``
+    is the (typically longer, more descriptive) ``User-Agent`` actually
+    sent when fetching ``robots.txt``, so the site's logs are consistent
+    with whatever identity is used for the rest of the record-mode
+    requests. If ``fetch_user_agent`` is not given, ``match_user_agent``
+    is used for both.
     """
 
     ROBOTS_TIMEOUT = 10
     CACHE_TTL = 3600
 
-    def __init__(self, user_agent, cache_ttl=CACHE_TTL):
-        self.user_agent = user_agent
+    def __init__(self, match_user_agent, fetch_user_agent=None, cache_ttl=CACHE_TTL):
+        self.match_user_agent = match_user_agent
+        self.fetch_user_agent = fetch_user_agent or match_user_agent
         self.cache_ttl = cache_ttl
         # in-memory, per-process cache: not shared across uwsgi/gunicorn
         # workers or separate replicas, so each worker refetches robots.txt
@@ -140,7 +149,7 @@ class RobotsExclusionFilter(SkipDefaultFilter):
 
         try:
             res = requests.get(robots_url,
-                               headers={'User-Agent': self.user_agent},
+                               headers={'User-Agent': self.fetch_user_agent},
                                timeout=self.ROBOTS_TIMEOUT)
             if res.status_code in (401, 403):
                 parser.disallow_all = True
@@ -172,7 +181,7 @@ class RobotsExclusionFilter(SkipDefaultFilter):
             return False
 
         parser = self._get_parser(url)
-        if not parser.can_fetch(self.user_agent, url):
+        if not parser.can_fetch(self.match_user_agent, url):
             return True
 
         return False

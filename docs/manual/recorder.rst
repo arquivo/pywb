@@ -55,26 +55,34 @@ For a more detailed examples, please consult the tests in :mod:`pywb.recorder.te
 Robots.txt Exclusion
 ---------------------
 
-Setting ``robots_user_agent`` in the ``recorder`` config section enables robots.txt-based
-exclusion for record mode (eg. "archive page now")::
+Two independent, optional settings are available in the ``recorder`` config section::
 
     recorder:
         source_coll: live
         robots_user_agent: Arquivo-web-crawler
+        record_user_agent: "Mozilla/5.0 (compatible; Arquivo-web-crawler/1.0; +https://arquivo.pt/bot)"
 
-When set:
+``robots_user_agent``
+    Enables robots.txt-based exclusion for record mode (eg. "archive page now"). Before
+    persisting a capture, pywb fetches and checks the site's ``robots.txt`` for rules
+    applying to this user agent token. If disallowed, the capture is not written to the WARC.
+    The page is still served to the browser normally either way -- this only affects
+    whether the capture is persisted, not whether it can be viewed live. If ``robots.txt``
+    can't be fetched (eg. network error or timeout), the capture proceeds as if allowed, so
+    a temporary robots.txt fetch failure never blocks archiving.
 
-* Record-mode requests to the live site are sent with this ``User-Agent`` instead of
-  forwarding the browser's own ``User-Agent``.
+``record_user_agent``
+    Overrides the outbound ``User-Agent`` sent for record-mode requests to the live site,
+    instead of forwarding the browser's own ``User-Agent``. This is typically a longer,
+    more descriptive string that includes the software name and version (as is customary
+    for identifying a crawler), while ``robots_user_agent`` is the shorter token actually
+    matched against the site's ``Disallow``/``Allow`` rules. When both are set, this
+    ``User-Agent`` is also used when fetching ``robots.txt`` itself, so the site sees a
+    consistent identity across all record-mode requests.
 
-* Before persisting a capture, pywb fetches and checks the site's ``robots.txt`` for rules
-  applying to this user agent. If disallowed, the capture is not written to the WARC.
-
-* The page is still served to the browser normally in either case -- this only affects
-  whether the capture is persisted, not whether it can be viewed live.
-
-If ``robots.txt`` can't be fetched (eg. network error or timeout), the capture proceeds
-as if allowed, so a temporary robots.txt fetch failure never blocks archiving.
+These two settings can be used independently: ``robots_user_agent`` alone gates persistence
+without changing what's sent to the site, while ``record_user_agent`` alone changes the
+outbound identity without any robots.txt-based persistence gating.
 
 
 

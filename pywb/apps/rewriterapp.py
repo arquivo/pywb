@@ -60,7 +60,7 @@ class RewriterApp(object):
         recorder_config = self.config.get('recorder')
         if not isinstance(recorder_config, dict):
             recorder_config = {}
-        self.record_ua = recorder_config.get('robots_user_agent')
+        self.record_ua = recorder_config.get('record_user_agent')
 
         self.default_rw = DefaultRewriter(replay_mod=self.replay_mod,
                                           config=config)
