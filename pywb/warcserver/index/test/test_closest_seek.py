@@ -197,6 +197,12 @@ def test_closest_seek_limit():
     assert limit() == 100000
     assert limit(limit='10') == 10
     assert limit(limit=1) == 1
+
+    # replay closest_limit, an explicit limit takes precedence (see CDXQuery.limit)
+    assert limit(_closest_limit=100) == 100
+    assert limit(_closest_limit='100') == 100
+    assert limit(_closest_limit=100, limit='10') == 10
+    assert limit(_closest_limit=None) == 100000
     assert limit(reverse='false', resolveRevisits='0', showNumPages='false') == 100000
 
     # results are not just the captures closest to closest=

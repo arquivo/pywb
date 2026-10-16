@@ -202,8 +202,13 @@ def closest_seek_limit(params):
         if params.get(name):
             return None
 
+    # same limit as CDXQuery.limit: an explicit limit, else the replay
+    # closest_limit, else the default
     try:
-        limit = int(params.get('limit', 100000))
+        if 'limit' in params:
+            limit = int(params['limit'])
+        else:
+            limit = int(params.get('_closest_limit') or 100000)
     except ValueError:
         return None
 
